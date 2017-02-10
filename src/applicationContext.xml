@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+    	 http://www.springframework.org/schema/beans/spring-beans.xsd
+     	 http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context.xsd
+         http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop.xsd
+         http://www.springframework.org/schema/tx
+     	 http://www.springframework.org/schema/tx/spring-tx.xsd
+      	 http://www.springframework.org/schema/mvc
+     	 http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd
+      "
+     	 >
+      
+      <!-- 配置C3P0连接池  管理数据库连接-->
+      <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+    	<property name="driverClass" value="com.mysql.jdbc.Driver"></property>
+      	<property name="jdbcUrl" value="jdbc:mysql://localhost:3306/ssm_storage"></property>
+    	<property name="user" value="root"></property>
+    	<property name="password" value="root"></property>
+      </bean>
+      
+     <!-- 配置sessionFactoryBean 加载mybatis配置文件,替代MybatisUtil的作用 -->
+     <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+     	<property name="configLocation" value="classpath:mybatis.xml"></property>
+     	<property name="dataSource" ref="dataSource"></property>
+     	<!-- 配置自动加载SQL映射文件，代替mybatis.xml中的配置 -->
+     	<property name="mapperLocations" value="classpath:indi/*/dao/*.xml"></property>
+     </bean>
+     
+     <!-- 配置Mybatis的事务管理器 ,由于mybatis底层用的是jdbc事务管理器,因此本质上依然配置jdbc事务管理器 -->
+     <!-- 该管理器负责开/关事务 -->
+     <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+     	<!-- 理论上依赖于mybatis的sessionFactory  但是由于jdbc是底层,所以只能依赖与连接池 -->
+     	<property name="dataSource" ref="dataSource"></property>
+     </bean>
+     
+     <!-- 配置事务通知,即哪些方法需要事务-->
+     <tx:advice id="tx" transaction-manager="transactionManager">
+     	<tx:attributes>
+     		<!-- 哪些方法需要事务支持  REQUIRED:该方法一定要事务  SUPPORTS：该方法支持事务（方法中有就有，没有就没有） -->
+     		<!-- 默认只处理运行时异常  加上rollback-for="Exception/Throwable"等处理所有异常包括错误 -->
+     		<tx:method name="add*" propagation="REQUIRED" rollback-for="Exception"/>
+     		<tx:method name="insert"  propagation="REQUIRED" rollback-for="Exception"/>
+     		<tx:method name="update*" propagation="REQUIRED" rollback-for="Exception"/>
+     		<tx:method name="edit"  propagation="REQUIRED" rollback-for="Exception"/>
+     		<tx:method name="delete*" propagation="REQUIRED" rollback-for="Exception"/>
+     		<tx:method name="*" propagation="SUPPORTS" rollback-for="Exception"/>
+	     	</tx:attributes>
+     </tx:advice>
+     
+     <!-- 配置事务切面,即哪些包下的类需要事务 -->
+     <aop:config>
+     	<!-- 不限返回值  包名.该包中的类名.该类中的方法名(不限参数) -->
+     	<aop:pointcut id="pointcut" expression="execution(* indi.*.service.impl.*.*(..))" />
+     	<!-- 表示将需要事务的方法切入到需要事务的包中 整合一下 -->
+     	<aop:advisor advice-ref="tx" pointcut-ref="pointcut"/>
+     </aop:config>
+     
+      <!-- 开启注解扫描  要把controller的扫描去除（交给spring-mvc扫描） 如果不去除会影响事务管理 -->
+     <context:component-scan base-package="indi.*" >
+     	<context:exclude-filter type="annotation" 
+     		expression="org.springframework.stereotype.Controller"/>
+     </context:component-scan>
+     
+     
+     <!-- 简化mybatis.xml的配置 -->
+     <!-- （面向接口）配置转换器，对于在basePackage设置的包（包括子包）下面的接口，
+     		如果接口的全类名跟mapper.xml的命名空间保持一致，将被spring自动转化成对应的bean，
+     		并且在调用时以@Autowired方式将其注入 -->
+   	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="sqlSessionFactory" ref="sqlSessionFactory" />
+		<property name="basePackage" value="indi.*.dao" />
+	</bean>	
+	     
+     		
+     <bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+     	<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory" />
+     </bean>
+     
+     
+</beans>      
+	

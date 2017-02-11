@@ -71,4 +71,4 @@ insert into supplier (sup_name,sup_linkman,sup_phone,sup_address,sup_remark) val
 select * from account;
 select * from supplier;
 select * from aaa;
-select * from bbb;
+select * from bVb;
